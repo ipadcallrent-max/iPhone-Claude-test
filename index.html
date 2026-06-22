@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#f2f2f7" />
+  <title>Mes Tâches</title>
+
+  <!-- PWA / iOS "ajouter à l'écran d'accueil" -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Tâches" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-row">
+        <h1>Mes Tâches</h1>
+        <span id="dateLabel" class="date-label"></span>
+      </div>
+      <p id="counter" class="counter">Aucune tâche</p>
+    </header>
+
+    <form id="addForm" class="add-form" autocomplete="off">
+      <input
+        id="taskInput"
+        class="task-input"
+        type="text"
+        placeholder="Ajouter une tâche…"
+        enterkeyhint="done"
+        maxlength="200"
+      />
+      <button type="submit" class="add-btn" aria-label="Ajouter">+</button>
+    </form>
+
+    <div class="filters" id="filters">
+      <button class="filter active" data-filter="all">Toutes</button>
+      <button class="filter" data-filter="active">À faire</button>
+      <button class="filter" data-filter="done">Terminées</button>
+    </div>
+
+    <ul id="list" class="list"></ul>
+
+    <div id="empty" class="empty">
+      <div class="empty-emoji">🎉</div>
+      <p>Tout est fait !</p>
+      <span>Ajoute une tâche pour commencer.</span>
+    </div>
+
+    <footer class="footer">
+      <button id="clearDone" class="clear-btn">Effacer les terminées</button>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
