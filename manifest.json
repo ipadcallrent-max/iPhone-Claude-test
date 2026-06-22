@@ -1,11 +1,13 @@
 {
-  "name": "Mes Tâches",
-  "short_name": "Tâches",
-  "description": "Une liste de tâches simple et rapide.",
+  "name": "Flow — Notes & Rappels",
+  "short_name": "Flow",
+  "description": "Un croisement entre Notes, Rappels et To-Do : tâches, échéances, sous-tâches, notes et listes, le tout au même endroit.",
   "start_url": ".",
+  "scope": ".",
   "display": "standalone",
   "background_color": "#f2f2f7",
   "theme_color": "#f2f2f7",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "icon.svg",
