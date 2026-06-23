@@ -272,6 +272,8 @@ input[type="date"].input, input[type="time"].input { min-width: 0; width: 100%; 
 .cl-del { border: none; background: transparent; color: var(--subtle); font-size: 16px; }
 .cl-add { border: none; background: transparent; color: var(--accent); font-size: 15px; font-weight: 600; text-align: left; padding: 6px 2px; }
 
+.clear-due { border: none; background: transparent; color: var(--accent); font-size: 14px; font-weight: 600; padding: 8px 2px 0; }
+
 .danger-btn { width: 100%; border: none; background: color-mix(in srgb, var(--red) 12%, transparent); color: var(--red); font-size: 16px; font-weight: 600; padding: 14px; border-radius: 12px; margin-top: 6px; }
 
 /* ===== Toast ===== */

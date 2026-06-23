@@ -534,29 +534,21 @@
     b.appendChild(row);
 
     if (d.type === "task") {
-      // Due date + time
-      const dt = d.due ? new Date(d.due) : null;
-      const dateIn = document.createElement("input");
-      dateIn.type = "date"; dateIn.className = "input";
-      dateIn.value = dt ? toDateInput(dt) : "";
-      const timeIn = document.createElement("input");
-      timeIn.type = "time"; timeIn.className = "input";
-      timeIn.value = dt && (dt.getHours() || dt.getMinutes()) ? toTimeInput(dt) : "";
-      const syncDue = () => {
-        if (!dateIn.value) { d.due = null; }
-        else {
-          const [y, m, day] = dateIn.value.split("-").map(Number);
-          let hh = 9, mm = 0;
-          if (timeIn.value) { [hh, mm] = timeIn.value.split(":").map(Number); }
-          d.due = new Date(y, m - 1, day, hh, mm, 0, 0).toISOString();
-        }
-      };
-      dateIn.addEventListener("change", syncDue);
-      timeIn.addEventListener("change", syncDue);
-      const dueRow = document.createElement("div"); dueRow.className = "row";
-      dueRow.appendChild(field("Échéance", dateIn));
-      dueRow.appendChild(field("Heure", timeIn));
-      b.appendChild(dueRow);
+      // Échéance : un seul champ date+heure (rendu natif propre sur iOS)
+      const dtIn = document.createElement("input");
+      dtIn.type = "datetime-local"; dtIn.className = "input";
+      dtIn.value = d.due ? toLocalInput(new Date(d.due)) : "";
+      dtIn.addEventListener("change", () => {
+        d.due = dtIn.value ? new Date(dtIn.value).toISOString() : null;
+      });
+      const dueField = field("Échéance (date et heure)", dtIn);
+      // bouton "effacer" l'échéance
+      const clr = document.createElement("button");
+      clr.type = "button"; clr.className = "clear-due";
+      clr.textContent = "Effacer l'échéance";
+      clr.addEventListener("click", () => { d.due = null; dtIn.value = ""; });
+      dueField.appendChild(clr);
+      b.appendChild(dueField);
 
       // Reminder + flag + pin toggles
       b.appendChild(toggleRow("🔔 Me rappeler", d.remind, (v) => {
@@ -689,8 +681,7 @@
     return row;
   }
 
-  const toDateInput = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-  const toTimeInput = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const toLocalInput = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   const pad = (n) => String(n).padStart(2, "0");
   const escapeAttr = (s) => String(s).replace(/"/g, "&quot;").replace(/</g, "&lt;");
 
