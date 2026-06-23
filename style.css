@@ -35,6 +35,8 @@
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* L'attribut [hidden] doit TOUJOURS l'emporter sur les display des classes */
+[hidden] { display: none !important; }
 html, body {
   margin: 0; padding: 0; height: 100%;
   background: var(--bg); color: var(--text);
