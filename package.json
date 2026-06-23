@@ -1,0 +1,9 @@
+{
+  "name": "flow-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Flow — Notes, Rappels & To-Do (PWA) avec synchro Netlify Blobs",
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0"
+  }
+}

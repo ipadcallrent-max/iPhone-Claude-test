@@ -33,6 +33,7 @@
         mkItem({ type: "note", title: "Idées de projet", body: "• Une app de méditation\n• Un journal de gratitude\n• Un tracker d'habitudes", listId: lPerso, color: "yellow", pinned: true }),
       ],
       settings: { theme: "auto", sort: "manual" },
+      tomb: {}, // pierres tombales {id: timestampSuppression} pour la synchro
     };
   }
 
@@ -69,15 +70,20 @@
       db.lists = db.lists || [];
       db.settings = Object.assign({ theme: "auto", sort: "manual" }, db.settings);
       db.items = db.items.map(mkItem); // normalise (migration douce)
+      db.tomb = db.tomb || {};
       return db;
     } catch (e) {
       console.warn("DB illisible, réinitialisation", e);
       return defaultDB();
     }
   }
-  function save() {
+  function save0() { // écrit en local uniquement
     try { localStorage.setItem(KEY, JSON.stringify(db)); }
     catch (e) { console.warn("Échec sauvegarde", e); }
+  }
+  function save() { // local + planifie une synchro cloud si activée
+    save0();
+    schedulePush();
   }
 
   let db = load();
@@ -197,10 +203,12 @@
     const idx = db.items.findIndex((i) => i.id === id);
     if (idx < 0) return;
     const [removed] = db.items.splice(idx, 1);
+    db.tomb[id] = Date.now(); // tombstone pour propager la suppression à la synchro
     save();
     if (undoable) {
       lastDeleted = { item: removed, index: idx };
       showToast("Supprimé", "Annuler", () => {
+        delete db.tomb[lastDeleted.item.id];
         db.items.splice(Math.min(lastDeleted.index, db.items.length), 0, lastDeleted.item);
         lastDeleted = null; save(); render();
       });
@@ -229,6 +237,8 @@
     toast: $("#toast"),
     themeLabel: $("#themeLabel"), themeIcon: $("#themeIcon"),
     notifLabel: $("#notifLabel"),
+    syncSheet: $("#syncSheet"), syncBody: $("#syncBody"),
+    syncLabel: $("#syncLabel"), syncIcon: $("#syncIcon"),
   };
 
   // ---------------------------------------------------------------------------
@@ -706,8 +716,9 @@
       ? `Supprimer « ${l.name} » et détacher ${n} élément(s) ? (les éléments ne seront pas supprimés)`
       : `Supprimer la liste « ${l.name} » ?`;
     if (!confirm(msg)) return;
-    db.items.forEach((i) => { if (i.listId === l.id) i.listId = null; });
+    db.items.forEach((i) => { if (i.listId === l.id) { i.listId = null; i.updatedAt = Date.now(); } });
     db.lists = db.lists.filter((x) => x.id !== l.id);
+    db.tomb[l.id] = Date.now();
     if (current.kind === "list" && current.id === l.id) current = { kind: "smart", id: "today" };
     save(); render();
   }
@@ -825,13 +836,15 @@
     $("#fab").addEventListener("click", () => openEditor(null));
     $("#editorCancel").addEventListener("click", closeEditor);
     $("#editorSave").addEventListener("click", saveEditor);
-    el.backdrop.addEventListener("click", closeEditor);
+    el.backdrop.addEventListener("click", () => { closeEditor(); closeSync(); });
     el.typeSeg.querySelectorAll(".seg-btn").forEach((b) =>
       b.addEventListener("click", () => setType(b.dataset.type)));
     $("#searchBtn").addEventListener("click", openSearch);
     $("#searchCancel").addEventListener("click", closeSearch);
     $("#sortBtn").addEventListener("click", cycleSort);
     el.searchInput.addEventListener("input", () => { searchTerm = el.searchInput.value.trim(); render(); });
+    $("#syncBtn").addEventListener("click", () => { openSync(); });
+    $("#syncClose").addEventListener("click", closeSync);
     $("#themeToggle").addEventListener("click", cycleTheme);
     $("#notifBtn").addEventListener("click", () =>
       ensureNotifPermission().then((p) => {
@@ -840,10 +853,183 @@
         else if (p === "denied") showToast("Rappels bloqués dans les réglages");
       }));
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") { if (!el.editor.hidden) closeEditor(); else if (!el.searchWrap.hidden) closeSearch(); else closeSidebar(); }
+      if (e.key === "Escape") { if (!el.editor.hidden) closeEditor(); else if (!el.syncSheet.hidden) closeSync(); else if (!el.searchWrap.hidden) closeSearch(); else closeSidebar(); }
     });
     // refresh "today/overdue" once a minute
     setInterval(() => { if (el.editor.hidden) render(); }, 60000);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Synchronisation cloud (Netlify Functions + Blobs) — par code secret, offline-first
+  // ---------------------------------------------------------------------------
+  const CLOUD = { endpoint: "/api/sync" }; // fonction Netlify, même origine
+  const SYNC_KEY = "flow.sync"; // {code, lastSync} — local à l'appareil, hors données synchronisées
+  let sync = loadSync();
+  let syncing = false;
+  let pushTimer = null;
+
+  function loadSync() {
+    try { return JSON.parse(localStorage.getItem(SYNC_KEY)) || {}; } catch (e) { return {}; }
+  }
+  function saveSync() { try { localStorage.setItem(SYNC_KEY, JSON.stringify(sync)); } catch (e) {} }
+
+  async function rpc(action, payload) {
+    const res = await fetch(CLOUD.endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(Object.assign({ action }, payload)),
+    });
+    if (!res.ok) throw new Error("sync " + action + " → " + res.status);
+    return res.json();
+  }
+  async function cloudPull(code) {
+    const r = await rpc("pull", { code });
+    return r || null; // {data, updated_at} | null
+  }
+  async function cloudPush(code, data) { return rpc("push", { code, data }); }
+
+  // Fusion sans perte : items par updatedAt max, suppressions via tombstones
+  function mergeDB(a, b) {
+    a = a || {}; b = b || {};
+    const tomb = Object.assign({}, a.tomb || {});
+    for (const [id, t] of Object.entries(b.tomb || {})) tomb[id] = Math.max(tomb[id] || 0, t);
+
+    const byId = {};
+    for (const it of [...(a.items || []), ...(b.items || [])]) {
+      const p = byId[it.id];
+      if (!p || (it.updatedAt || 0) > (p.updatedAt || 0)) byId[it.id] = it;
+    }
+    const items = Object.values(byId)
+      .filter((it) => !(tomb[it.id] && tomb[it.id] >= (it.updatedAt || 0)))
+      .map(mkItem);
+
+    const lById = {};
+    for (const l of [...(a.lists || []), ...(b.lists || [])]) if (!lById[l.id]) lById[l.id] = l;
+    const lists = Object.values(lById).filter((l) => !tomb[l.id]);
+
+    const settings = Object.assign({}, b.settings, a.settings); // garde les réglages locaux
+    return { v: 1, items, lists, settings, tomb };
+  }
+
+  function schedulePush() {
+    if (!sync.code) return;
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(() => syncNow(), 1500);
+  }
+
+  async function syncNow() {
+    if (!sync.code || syncing) return;
+    syncing = true; setSyncStatus("sync");
+    try {
+      const remote = await cloudPull(sync.code);
+      if (remote && remote.data) {
+        const merged = mergeDB(db, remote.data);
+        db = merged; save0();
+        if (el.editor.hidden && el.syncSheet.hidden) render();
+      }
+      await cloudPush(sync.code, db);
+      sync.lastSync = Date.now(); saveSync();
+      setSyncStatus("ok");
+    } catch (e) {
+      setSyncStatus("offline");
+    } finally {
+      syncing = false;
+      if (!el.syncSheet.hidden) buildSync();
+    }
+  }
+
+  function setSyncStatus(state) {
+    if (!el.syncLabel) return;
+    if (!sync.code) { el.syncIcon.textContent = "☁️"; el.syncLabel.textContent = "Synchroniser…"; return; }
+    const map = { sync: ["⏳", "Synchronisation…"], ok: ["✅", "Synchronisé"], offline: ["⚠️", "Hors-ligne"] };
+    const [ic, lab] = map[state] || ["☁️", "Synchro activée"];
+    el.syncIcon.textContent = ic; el.syncLabel.textContent = lab;
+  }
+
+  function generateCode() {
+    let raw = "";
+    if (window.crypto && crypto.getRandomValues) {
+      const a = new Uint8Array(12); crypto.getRandomValues(a);
+      raw = Array.from(a, (b) => "0123456789ABCDEFGHJKMNPQRSTVWXYZ"[b % 32]).join("");
+    } else {
+      for (let i = 0; i < 12; i++) raw += "0123456789ABCDEFGHJKMNPQRSTVWXYZ"[Math.floor(Math.random() * 32)];
+    }
+    return "FLOW-" + raw.replace(/(.{4})/g, "$1-").replace(/-$/, "");
+  }
+
+  function openSync() { buildSync(); el.backdrop.hidden = false; el.syncSheet.hidden = false; }
+  function closeSync() { el.syncSheet.hidden = true; if (el.editor.hidden) el.backdrop.hidden = true; }
+
+  function buildSync() {
+    const b = el.syncBody; b.innerHTML = "";
+    const p = (html) => { const d = document.createElement("div"); d.innerHTML = html; return d; };
+
+    if (!sync.code) {
+      b.appendChild(p(`<p style="margin:0 0 14px;color:var(--text-2);line-height:1.45">
+        Sauvegarde tes données dans le cloud et retrouve-les sur tous tes appareils.
+        Crée un espace, puis saisis le même code sur ton autre téléphone ou ordi.</p>`));
+
+      const create = document.createElement("button");
+      create.className = "danger-btn"; create.style.cssText = "background:var(--accent);color:#fff";
+      create.textContent = "✨ Créer mon espace de synchro";
+      create.addEventListener("click", async () => {
+        sync.code = generateCode(); saveSync();
+        await syncNow(); buildSync();
+        showToast("Espace de synchro créé ✓");
+      });
+      b.appendChild(field("", create));
+
+      b.appendChild(p(`<div style="text-align:center;color:var(--subtle);margin:6px 0 10px">— ou —</div>`));
+
+      const inp = input("input", "", "Coller un code existant (FLOW-…)", () => {});
+      inp.style.textTransform = "uppercase";
+      const connect = document.createElement("button");
+      connect.className = "danger-btn"; connect.style.cssText = "background:var(--separator-2);color:var(--text)";
+      connect.textContent = "🔗 Connecter cet appareil";
+      connect.addEventListener("click", async () => {
+        const code = inp.value.trim().toUpperCase();
+        if (code.length < 8) { showToast("Code invalide"); return; }
+        sync.code = code; saveSync();
+        await syncNow(); buildSync();
+        showToast("Appareil connecté ✓");
+      });
+      b.appendChild(field("J'ai déjà un code", inp));
+      b.appendChild(field("", connect));
+    } else {
+      const last = sync.lastSync ? new Date(sync.lastSync).toLocaleString("fr-FR") : "jamais";
+      b.appendChild(p(`<p style="margin:0 0 6px;font-size:17px;font-weight:600">✅ Cet appareil est synchronisé</p>
+        <p style="margin:0 0 14px;color:var(--subtle);font-size:13px">Dernière synchro : ${last}</p>
+        <p style="margin:0 0 8px;color:var(--text-2);font-size:14px">Ton code (saisis-le sur tes autres appareils) :</p>`));
+
+      const codeBox = document.createElement("div");
+      codeBox.style.cssText = "font-family:ui-monospace,Menlo,monospace;font-size:17px;font-weight:700;letter-spacing:1px;background:var(--separator-2);padding:14px;border-radius:12px;text-align:center;word-break:break-all";
+      codeBox.textContent = sync.code;
+      b.appendChild(codeBox);
+
+      const copy = document.createElement("button");
+      copy.className = "danger-btn"; copy.style.cssText = "background:var(--accent);color:#fff;margin-top:10px";
+      copy.textContent = "📋 Copier le code";
+      copy.addEventListener("click", () => {
+        try { navigator.clipboard.writeText(sync.code); showToast("Code copié ✓"); }
+        catch (e) { showToast("Copie manuelle : " + sync.code); }
+      });
+      b.appendChild(copy);
+
+      const now = document.createElement("button");
+      now.className = "danger-btn"; now.style.cssText = "background:var(--separator-2);color:var(--text);margin-top:10px";
+      now.textContent = "🔄 Synchroniser maintenant";
+      now.addEventListener("click", () => syncNow());
+      b.appendChild(now);
+
+      const off = document.createElement("button");
+      off.className = "danger-btn"; off.style.marginTop = "10px";
+      off.textContent = "Déconnecter cet appareil";
+      off.addEventListener("click", () => {
+        if (!confirm("Déconnecter ? Tes données restent sur cet appareil mais ne seront plus synchronisées.")) return;
+        sync = {}; saveSync(); setSyncStatus(); buildSync();
+      });
+      b.appendChild(off);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -856,6 +1042,8 @@
     if (!localStorage.getItem(KEY)) save(); // persiste les données d'exemple dès le 1er lancement
     render();
     if (notifAvailable() && Notification.permission === "granted") scheduleAll();
+    setSyncStatus();
+    if (sync.code) syncNow(); // synchro en arrière-plan au démarrage
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
   }
 
@@ -872,5 +1060,8 @@
     visibleItems, get current() { return current; }, set current(v) { current = v; },
     set search(v) { searchTerm = v; }, render,
     get editDraft() { return editDraft; },
+    // synchro (tests)
+    mergeDB, openSync, syncNow,
+    get sync() { return sync; }, setSyncCode(c) { sync.code = c; saveSync(); },
   };
 })();

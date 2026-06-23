@@ -1,0 +1,5 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+# SPA/PWA : on sert les fichiers statiques tels quels ; /api/sync est géré par la fonction.

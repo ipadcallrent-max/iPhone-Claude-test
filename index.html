@@ -34,6 +34,7 @@
       <ul id="listMenu" class="list-menu"><!-- lists injected --></ul>
 
       <div class="sidebar-foot">
+        <button id="syncBtn" class="foot-btn"><span id="syncIcon">☁️</span> <span id="syncLabel">Synchroniser…</span></button>
         <button id="themeToggle" class="foot-btn"><span id="themeIcon">🌗</span> <span id="themeLabel">Thème : Auto</span></button>
         <button id="notifBtn" class="foot-btn"><span>🔔</span> <span id="notifLabel">Activer les rappels</span></button>
       </div>
@@ -85,6 +86,17 @@
       <div class="sheet-body" id="editorBody"><!-- editor fields injected --></div>
     </section>
   </div>
+
+    <!-- Sync sheet -->
+    <section id="syncSheet" class="sheet" hidden aria-modal="true" role="dialog">
+      <div class="sheet-handle"></div>
+      <div class="sheet-head">
+        <button id="syncClose" class="text-btn">Fermer</button>
+        <strong>☁️ Synchronisation</strong>
+        <span style="width:54px"></span>
+      </div>
+      <div class="sheet-body" id="syncBody"></div>
+    </section>
 
   <div id="toast" class="toast" hidden></div>
 
