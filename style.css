@@ -240,8 +240,16 @@ button { font-family: inherit; cursor: pointer; }
   width: 100%; min-width: 0; max-width: 100%; border: none; background: var(--separator-2); color: var(--text);
   font-size: 16px; padding: 13px 14px; border-radius: 12px; outline: none; font-family: inherit;
 }
-/* champs date/heure : doivent pouvoir rétrécir dans leur colonne */
-input[type="date"].input, input[type="time"].input { min-width: 0; width: 100%; }
+/* champs date/heure : doivent pouvoir rétrécir et ne rien laisser dépasser */
+input[type="date"].input, input[type="time"].input,
+input[type="datetime-local"].input {
+  min-width: 0; width: 100%; max-width: 100%;
+  -webkit-appearance: none; appearance: none;
+  overflow: hidden; /* rogne tout débord du contrôle natif iOS */
+}
+/* aligne la valeur à gauche et place l'icône calendrier à droite, dans le cadre */
+input[type="datetime-local"].input::-webkit-date-and-time-value { text-align: left; margin: 0; }
+input[type="datetime-local"].input::-webkit-calendar-picker-indicator { margin: 0 0 0 auto; }
 .title-input { font-size: 20px; font-weight: 700; background: transparent; padding: 6px 2px; border-radius: 0; }
 .textarea { min-height: 110px; resize: vertical; line-height: 1.4; }
 

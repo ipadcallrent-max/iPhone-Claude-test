@@ -1,4 +1,4 @@
-const CACHE = "flow-v7";
+const CACHE = "flow-v8";
 const ASSETS = [
   "./",
   "./index.html",
