@@ -1,4 +1,4 @@
-const CACHE = "flow-v5";
+const CACHE = "flow-v6";
 const ASSETS = [
   "./",
   "./index.html",
@@ -22,20 +22,21 @@ self.addEventListener("activate", (e) => {
   self.clients.claim();
 });
 
+// Réseau d'abord : on sert toujours la dernière version quand le réseau est là,
+// et on retombe sur le cache uniquement hors-ligne.
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
   e.respondWith(
-    caches.match(e.request).then((cached) => {
-      const network = fetch(e.request)
-        .then((res) => {
-          if (res && res.status === 200 && res.type === "basic") {
-            const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put(e.request, copy));
-          }
-          return res;
-        })
-        .catch(() => cached);
-      return cached || network;
-    })
+    fetch(e.request)
+      .then((res) => {
+        if (res && res.status === 200 && res.type === "basic") {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, copy));
+        }
+        return res;
+      })
+      .catch(() =>
+        caches.match(e.request).then((cached) => cached || caches.match("./index.html"))
+      )
   );
 });

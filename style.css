@@ -232,7 +232,7 @@ button { font-family: inherit; cursor: pointer; }
 .seg-btn { border: none; background: transparent; color: var(--text); font-size: 14px; font-weight: 600; padding: 7px 12px; border-radius: 8px; }
 .seg-btn.active { background: var(--card); box-shadow: var(--shadow); }
 
-.sheet-body { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 14px 16px 24px; -webkit-overflow-scrolling: touch; }
+.sheet-body { overflow-y: auto; overflow-x: hidden; overscroll-behavior: none; padding: 14px 16px 24px; -webkit-overflow-scrolling: touch; }
 
 .field { margin-bottom: 14px; }
 .field > label { display: block; font-size: 12px; font-weight: 700; color: var(--subtle); text-transform: uppercase; letter-spacing: .03em; margin: 0 2px 6px; }
