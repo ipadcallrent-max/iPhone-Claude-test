@@ -12,6 +12,8 @@
   --orange: #ff9500;
   --red: #ff3b30;
   --yellow: #ffcc00;
+  --blue: #007aff;
+  --purple: #5856d6;
   --separator: #e3e3e8;
   --separator-2: #ededf2;
   --shadow: 0 1px 3px rgba(0,0,0,.08), 0 6px 18px rgba(0,0,0,.04);
@@ -43,6 +45,8 @@ html, body {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
+  overflow-x: hidden; /* aucun défilement horizontal parasite */
+  max-width: 100%;
 }
 button { font-family: inherit; cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -228,19 +232,21 @@ button { font-family: inherit; cursor: pointer; }
 .seg-btn { border: none; background: transparent; color: var(--text); font-size: 14px; font-weight: 600; padding: 7px 12px; border-radius: 8px; }
 .seg-btn.active { background: var(--card); box-shadow: var(--shadow); }
 
-.sheet-body { overflow-y: auto; padding: 14px 16px 24px; -webkit-overflow-scrolling: touch; }
+.sheet-body { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 14px 16px 24px; -webkit-overflow-scrolling: touch; }
 
 .field { margin-bottom: 14px; }
 .field > label { display: block; font-size: 12px; font-weight: 700; color: var(--subtle); text-transform: uppercase; letter-spacing: .03em; margin: 0 2px 6px; }
 .input, .textarea, select.input {
-  width: 100%; border: none; background: var(--separator-2); color: var(--text);
+  width: 100%; min-width: 0; max-width: 100%; border: none; background: var(--separator-2); color: var(--text);
   font-size: 16px; padding: 13px 14px; border-radius: 12px; outline: none; font-family: inherit;
 }
+/* champs date/heure : doivent pouvoir rétrécir dans leur colonne */
+input[type="date"].input, input[type="time"].input { min-width: 0; width: 100%; }
 .title-input { font-size: 20px; font-weight: 700; background: transparent; padding: 6px 2px; border-radius: 0; }
 .textarea { min-height: 110px; resize: vertical; line-height: 1.4; }
 
 .row { display: flex; gap: 10px; }
-.row > .field { flex: 1; }
+.row > .field { flex: 1 1 0; min-width: 0; } /* min-width:0 = les colonnes peuvent rétrécir */
 
 .toggle-row { display: flex; align-items: center; justify-content: space-between; background: var(--separator-2); padding: 12px 14px; border-radius: 12px; margin-bottom: 12px; }
 .toggle-row .tr-label { font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
@@ -252,7 +258,8 @@ button { font-family: inherit; cursor: pointer; }
 .switch input:checked + .track + .thumb { transform: translateX(20px); }
 
 .prio-seg, .color-seg { display: flex; gap: 8px; }
-.prio-opt { flex: 1; border: 2px solid var(--separator); background: transparent; color: var(--text); border-radius: 12px; padding: 10px 0; font-size: 13px; font-weight: 600; }
+.color-seg { flex-wrap: wrap; }
+.prio-opt { flex: 1 1 0; min-width: 0; border: 2px solid var(--separator); background: transparent; color: var(--text); border-radius: 12px; padding: 10px 4px; font-size: 13px; font-weight: 600; white-space: nowrap; }
 .prio-opt.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .color-dot { width: 34px; height: 34px; border-radius: 50%; border: 3px solid transparent; }
 .color-dot.sel { border-color: var(--text); }
