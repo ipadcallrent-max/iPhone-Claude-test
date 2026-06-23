@@ -212,9 +212,12 @@ button { font-family: inherit; cursor: pointer; }
 /* ===== Sheet (editor) ===== */
 .backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.4); }
 .sheet {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 61;
+  position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 61;
   background: var(--bg-elev); border-radius: 22px 22px 0 0; box-shadow: var(--sheet-shadow);
-  max-height: 94vh; display: flex; flex-direction: column;
+  /* ne jamais passer sous la barre d'état / Dynamic Island */
+  max-height: calc(100vh - env(safe-area-inset-top) - 12px);
+  max-height: calc(100dvh - env(safe-area-inset-top) - 12px);
+  display: flex; flex-direction: column;
   padding-bottom: env(safe-area-inset-bottom);
   animation: sheetUp .3s cubic-bezier(.2,.8,.2,1);
 }
